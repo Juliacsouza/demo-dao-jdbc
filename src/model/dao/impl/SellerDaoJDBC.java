@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,8 +27,37 @@ public class SellerDaoJDBC implements SellerDao {
 
 	@Override
 	public void insert(Seller obj) {
-		// TODO Auto-generated method stub
 
+		PreparedStatement st = null;
+		try {
+			st = conn.prepareStatement("INSERT INTO seller" + "(Name, Email, BirthDate, BaseSalary, DepartmentId) "
+					+ "VALUES " + "(?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);// Esse ultimo comando é pra
+																						// retornar o id do novo
+																						// vendedir inserido.
+
+			st.setString(1, obj.getName());
+			st.setString(2, obj.getName());
+			st.setDate(3, new java.sql.Date(obj.getBirthDate().getTime()));
+			st.setDouble(4, obj.getBaseSalary());
+			st.setInt(5, obj.getDepartment().getId());
+
+			int rowsAffected = st.executeUpdate();
+
+			if (rowsAffected > 0) {
+				ResultSet rs = st.getGeneratedKeys();
+				if (rs.next()) {
+					int id = rs.getInt(1);
+					obj.setId(id);
+				}
+				DB.closeResultSet(rs);
+			} else {
+				throw new DbException("Unexpected error! No rows affected!");
+			}
+		} catch (SQLException e) {
+			throw new DbException(e.getMessage());
+		} finally {
+			DB.closeStatement(st);
+		}
 	}
 
 	@Override
@@ -54,34 +84,29 @@ public class SellerDaoJDBC implements SellerDao {
 			st.setInt(1, id);
 			rs = st.executeQuery();
 			if (rs.next()) {
-				
+
 				Department dep = instantiateDepartment(rs);
 				/*
-				 * Department dep = new Department();
-				dep.setId(rs.getInt("DepartmentId"));
-				dep.setName(rs.getString("DepName"));
-				
-				***Código muito grande para instanciar departamento.
-				*  Feita uma função para retornar esses dados.
-				*/
-				
+				 * Department dep = new Department(); dep.setId(rs.getInt("DepartmentId"));
+				 * dep.setName(rs.getString("DepName"));
+				 *** 
+				 * Código muito grande para instanciar departamento. Feita uma função para
+				 * retornar esses dados.
+				 */
+
 				Seller obj = instantiateSeller(rs, dep);
 				return obj;
-				
-				
+
 				/*
-				Seller obj = new Seller();
-				obj.setId(rs.getInt("Id"));
-				obj.setName(rs.getString("Name"));
-				obj.setEmail(rs.getString("Email"));
-				obj.setBaseSalary(rs.getDouble("BaseSalary"));
-				obj.setBirthDate(rs.getDate("BirthDate"));
-				obj.setDepartment(dep);
-				return obj;
-				
-				***Código muito grande para instanciar vendedor.
-				*  Feita uma função para retornar esses dados.
-				*/
+				 * Seller obj = new Seller(); obj.setId(rs.getInt("Id"));
+				 * obj.setName(rs.getString("Name")); obj.setEmail(rs.getString("Email"));
+				 * obj.setBaseSalary(rs.getDouble("BaseSalary"));
+				 * obj.setBirthDate(rs.getDate("BirthDate")); obj.setDepartment(dep); return
+				 * obj;
+				 *** 
+				 * Código muito grande para instanciar vendedor. Feita uma função para retornar
+				 * esses dados.
+				 */
 			}
 			return null;
 		} catch (SQLException e) {
@@ -104,8 +129,10 @@ public class SellerDaoJDBC implements SellerDao {
 	}
 
 	private Department instantiateDepartment(ResultSet rs) throws SQLException {
-		Department dep = new Department();  /* A exceção foi propagada pois quando o método
-		é instaciado no código, já há tratamento.*/
+		Department dep = new Department(); /*
+											 * A exceção foi propagada pois quando o método é instaciado no código, já
+											 * há tratamento.
+											 */
 		dep.setId(rs.getInt("DepartmentId"));
 		dep.setName(rs.getString("DepName"));
 		return dep;
@@ -113,40 +140,38 @@ public class SellerDaoJDBC implements SellerDao {
 
 	@Override
 	public List<Seller> findAll() {
-			PreparedStatement st = null;
-			ResultSet rs = null;
-			try {
-				st = conn.prepareStatement(
-						"SELECT seller.*,department.Name as DepName\r\n"
-						+ "FROM seller INNER JOIN department\r\n"
-						+ "ON seller.DepartmentId = department.Id\r\n"
-						+ "ORDER BY Name");
-				
-				rs = st.executeQuery();
-				
-				List<Seller> list = new ArrayList<>();
-				Map<Integer, Department> map = new HashMap<>();
-				
-				while (rs.next()) {
-					
-					Department dep = map.get(rs.getInt("DepartmentId"));
-					
-					if(dep == null) {
-						dep = instantiateDepartment(rs);
-						map.put(rs.getInt("DepartmentId"), dep);
-					}
-					
-					Seller obj = instantiateSeller(rs, dep);
-					list.add(obj);
-			
+		PreparedStatement st = null;
+		ResultSet rs = null;
+		try {
+			st = conn.prepareStatement(
+					"SELECT seller.*,department.Name as DepName\r\n" + "FROM seller INNER JOIN department\r\n"
+							+ "ON seller.DepartmentId = department.Id\r\n" + "ORDER BY Name");
+
+			rs = st.executeQuery();
+
+			List<Seller> list = new ArrayList<>();
+			Map<Integer, Department> map = new HashMap<>();
+
+			while (rs.next()) {
+
+				Department dep = map.get(rs.getInt("DepartmentId"));
+
+				if (dep == null) {
+					dep = instantiateDepartment(rs);
+					map.put(rs.getInt("DepartmentId"), dep);
 				}
-				return list;
-			} catch (SQLException e) {
-				throw new DbException(e.getMessage());
-			} finally {
-				DB.closeStatement(st);
-				DB.closeResultSet(rs);
-			} //Tiramos o where da query para que pesquise tudo.
+
+				Seller obj = instantiateSeller(rs, dep);
+				list.add(obj);
+
+			}
+			return list;
+		} catch (SQLException e) {
+			throw new DbException(e.getMessage());
+		} finally {
+			DB.closeStatement(st);
+			DB.closeResultSet(rs);
+		} // Tiramos o where da query para que pesquise tudo.
 	}
 
 	@Override
@@ -154,31 +179,28 @@ public class SellerDaoJDBC implements SellerDao {
 		PreparedStatement st = null;
 		ResultSet rs = null;
 		try {
-			st = conn.prepareStatement(
-					"SELECT seller.*,department.Name as DepName\r\n"
-					+ "FROM seller INNER JOIN department\r\n"
-					+ "ON seller.DepartmentId = department.Id\r\n"
-					+ "WHERE DepartmentId = ?\r\n"
-					+ "ORDER BY Name");
-			
+			st = conn.prepareStatement("SELECT seller.*,department.Name as DepName\r\n"
+					+ "FROM seller INNER JOIN department\r\n" + "ON seller.DepartmentId = department.Id\r\n"
+					+ "WHERE DepartmentId = ?\r\n" + "ORDER BY Name");
+
 			st.setInt(1, department.getId());
 			rs = st.executeQuery();
-			
+
 			List<Seller> list = new ArrayList<>();
 			Map<Integer, Department> map = new HashMap<>();
-			
+
 			while (rs.next()) {
-				
+
 				Department dep = map.get(rs.getInt("DepartmentId"));
-				
-				if(dep == null) {
+
+				if (dep == null) {
 					dep = instantiateDepartment(rs);
 					map.put(rs.getInt("DepartmentId"), dep);
 				}
-				
+
 				Seller obj = instantiateSeller(rs, dep);
 				list.add(obj);
-		
+
 			}
 			return list;
 		} catch (SQLException e) {
